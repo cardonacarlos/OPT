@@ -1,2 +1,0 @@
-# OPT
-OPT Project
