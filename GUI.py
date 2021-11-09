@@ -7,6 +7,7 @@ import json
 import math
 import re
 import pptx
+import os
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE
@@ -253,6 +254,13 @@ def make_powerpoint():
 
     pptx_name = string.upper() + ".pptx"
     prs.save(pptx_name)
+
+    #open powerpoint file that was just created
+
+    cwd = os.getcwd()
+    path = cwd + "\\" + pptx_name
+    os.startfile(path)
+
 
 
 #button to create powerpoint
