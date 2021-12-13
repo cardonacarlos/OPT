@@ -6,7 +6,7 @@ import numpy as np
 import json
 import math
 import re
-import pptx
+# import pptx
 import os
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE
