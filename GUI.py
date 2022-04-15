@@ -154,7 +154,11 @@ def company_facts():
                 val_data = val['units'][unit]
                 val_data_df = pd.DataFrame(unit_val)
                 val_data_df['unit'] = unit
-                unit_df = unit_df.append(val_data_df)
+                
+                
+                # deprecated warning
+                # unit_df = unit_df.append(val_data_df)
+                unit_df = pd.concat([unit_df, val_data_df])
                 metric_dict[key] = unit_df
 
         for item in items:
