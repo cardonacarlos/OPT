@@ -1,10 +1,7 @@
 import requests
 import json
+import tkinter as tk
 
-
-
-# print welcome to test button feature
-import string
 
 #header for accessing API
 headers = {
@@ -21,11 +18,8 @@ def hyperlink(CIK):
     url = 'https://www.sec.gov/edgar/browse/?CIK=' + CIK
     webbrowser.open_new_tab(url)
 
-# declare ticker string variable
-ticker = tk.StringVar()
-
 # get typed user input
-def user_input():
+def user_input(ticker):
     s = ticker.get()
     print(s)
     return s
@@ -77,7 +71,7 @@ NetIncomeLoss
 
 
 # access SEC Edgar API and return facts
-def company_facts():
+def company_facts(string):
     
     info = string.upper() + " Company Facts\n"
     

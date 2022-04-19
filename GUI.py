@@ -25,7 +25,6 @@ root = tk.Tk()
 frame = tk.Frame(root)
 frame.pack()
 
-
 #button to quit the app
 quitbutton = tk.Button(root,
                  text="Quit",
@@ -55,12 +54,16 @@ webpage = tk.Button(root,
                     command=hyperlink)
 webpage.pack(side=tk.LEFT, anchor=tk.NW)
 
+# declare ticker string variable
+ticker = tk.StringVar()
+
+
 
 #input button (for ticker)
 input = tk.Entry(root)
 input.pack(side=tk.BOTTOM, anchor=tk.SW)
 input.focus_set()
-inputbutton = tk.Button(root, text='Get Input', command=user_input)
+inputbutton = tk.Button(root, text='Get Input', command=user_input(ticker))
 inputbutton.pack(side=tk.LEFT, anchor=tk.NW)
 
 # # Reads ticker to cik file
@@ -115,7 +118,7 @@ info_label.pack(side=tk.RIGHT)
 #button to retrieve financial information
 financial_info = tk.Button(root,
                           text="Retrieve Financial Information",
-                          command=company_facts
+                          command=company_facts(string)
                           )
 financial_info.pack(side=tk.LEFT, anchor=tk.NW)
 
