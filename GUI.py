@@ -15,10 +15,9 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.dml import MSO_THEME_COLOR
 from pptx.enum.text import PP_ALIGN
-
-
 from logic import *
 
+metric_dict = None
 
 #makes the frame
 root = tk.Tk()
@@ -29,7 +28,7 @@ frame.pack()
 quitbutton = tk.Button(root,
                  text="Quit",
                  fg="red",
-                 command=quit)
+                 command=root.destroy)
 quitbutton.pack(side=tk.LEFT, anchor=tk.NW)
 quitbutton.focus_set()
 
@@ -57,13 +56,20 @@ webpage.pack(side=tk.LEFT, anchor=tk.NW)
 # declare ticker string variable
 ticker = tk.StringVar()
 
-
-
 #input button (for ticker)
-input = tk.Entry(root)
-input.pack(side=tk.BOTTOM, anchor=tk.SW)
-input.focus_set()
-inputbutton = tk.Button(root, text='Get Input', command=user_input(ticker))
+inp = tk.Entry(root)
+inp.pack(side=tk.BOTTOM, anchor=tk.SW)
+inp.focus_set()
+
+# get typed user input
+def user_input():
+    s = inp.get()
+    ticker.set(s)
+    print(s)
+    return s
+
+
+inputbutton = tk.Button(root, text='Get Input', command=user_input)
 inputbutton.pack(side=tk.LEFT, anchor=tk.NW)
 
 # # Reads ticker to cik file
@@ -99,9 +105,9 @@ StockholdersEquity
 WeightedAverageNumberOfSharesOutstandingBasic
 NetIncomeLoss
 """
-items = items.split()
-string = input.get()
 
+
+items = items.split()
 global info
 info = ""
 
@@ -113,12 +119,12 @@ info_label = tk.Label(root,
 info_label.pack(side=tk.RIGHT)
 
 
-
+tick = user_input()
 
 #button to retrieve financial information
 financial_info = tk.Button(root,
                           text="Retrieve Financial Information",
-                          command=company_facts(string)
+                          command=lambda:company_facts(ticker.get(), items, info, info_label, )
                           )
 financial_info.pack(side=tk.LEFT, anchor=tk.NW)
 
@@ -138,7 +144,14 @@ powerpoint_button = tk.Button(root,
 powerpoint_button.pack(side=tk.LEFT, anchor=tk.NW)
 
 
+checklist = tk.Button(root,
+                      text = "Checklist",
+                      command = check
+                      )
+checklist.pack(side = tk.LEFT, anchor=tk.NW)
 
+
+print(metric_dict)
 
 root.title("One Page Thinking - Financial Information Application")
 root.mainloop()
