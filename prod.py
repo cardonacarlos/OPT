@@ -92,7 +92,7 @@ class start_page(tk.Frame):
         s = self.get_input.get()
         self.ticker.set(s)
         print(s)
-        App.show_frame(self, "list_page")
+        App.show_frame(self.controller, "list_page")
         return s
         
 class list_page(tk.Frame):
