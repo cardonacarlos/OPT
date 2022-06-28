@@ -46,6 +46,9 @@ class App(tk.Tk):
         "NetIncomeLoss"
         ]
         
+        # metric dict keys variable
+        self.metric_dict_keys = None
+        
         self.sample = StringVar(value=self.shared_list)
         self.CIK = ""
         self.listbox_items = StringVar()
@@ -59,15 +62,18 @@ class App(tk.Tk):
         
         self.frames = {}
         for F in (start_page, list_page):
-            page_name = F.__name__
+            # page_name = F.__name__
             frame =  F(parent = container, controller = self)
-            self.frames[page_name] = frame       
+            self.frames[F] = frame       
             frame.grid(row=0, column=0, stick="nsew")
-        self.show_frame("start_page")
+        self.show_frame(start_page)
         
     def show_frame(self, page_name):
         frame = self.frames[page_name]
         frame.tkraise()
+        
+    def update_list_page(self):
+        self.frames[list_page].update_lbox()
             
 class start_page(tk.Frame):
     def __init__(self, parent, controller):
@@ -110,11 +116,10 @@ class start_page(tk.Frame):
         self.controller.CIK = self.tick_to_cik(self.controller.ticker.get())
         
         self.company_facts(self.controller.ticker.get())
-        
-        
+                
         
         # change to second page
-        App.show_frame(self.controller, "list_page")
+        App.show_frame(self.controller, list_page)
         return s
     
     # read ticker to cik file
@@ -169,9 +174,11 @@ class start_page(tk.Frame):
                         unit_df = pd.concat([unit_df, val_data_df])
                         metric_dict[key] = unit_df
                 
-                metric_dict_keys = [key for key in metric_dict.keys()]
-                print(metric_dict_keys)
-                self.controller.listbox_items.set(metric_dict_keys)  
+                # list of keys
+                
+                self.controller.metric_dict_keys = [key for key in metric_dict.keys()]
+                print(self.controller.metric_dict_keys)
+                self.controller.update_list_page()
                 
                 
                 for item in self.controller.shared_list:
@@ -223,11 +230,13 @@ class list_page(tk.Frame):
         print(self.controller.ticker.get() + "worked")
         
         # Company Information Listbox
-        self.lbox = Listbox(self, listvariable=self.controller.sample, selectmode=MULTIPLE,
+        self.lbox = Listbox(self, listvariable=self.controller.metric_dict_keys, selectmode=MULTIPLE,
                width=10, height=5)
         self.lbox.pack(side="top", fill="x", pady=10)
         self.lbl = ttk.Label(self, text = "Select Desired Information")
-        self.select_button = ttk.Button(self, text='Select Info', command=self.select)
+        self.select_button = ttk.Button(self, text='Select All', command=self.select_all)
+        self.select_button.pack(side="top", fill="x", pady=10)
+        
         
         # Print Information Button
         self.print_info = ttk.Button(self, text="Print Selected Information", command=self.lbox_print)
@@ -236,17 +245,27 @@ class list_page(tk.Frame):
         
         # Currently selected listbox items
         self.listbox_selection = []
-
         
-    # select desired financial information
-    def select(self):
-        results = []
-        selection = self.lbox.curselection()
-        for i in selection:
-            entry = self.lbox.get(i)
-            results.append(entry)
-        for val in results:
-            print(val)
+        # Button Click counter
+        self.counter = 0
+        
+        
+        
+    def select_all(self):
+        if self.counter % 2 == 0:
+            self.lbox.select_set(0, END)
+            self.counter += 1
+        else: 
+            self.lbox.selection_clear(0, END)
+            self.counter += 1
+        
+    
+    def update_lbox(self):
+        self.lbox.delete(0, 'end')
+        for item in self.controller.metric_dict_keys:
+            self.lbox.insert("end", item)
+        print(self.controller.metric_dict_keys)
+    
         
     # find a company's SEC report from ticker
     def hyperlink(self, CIK):
