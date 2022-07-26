@@ -2,6 +2,7 @@ from random import sample
 from tkinter import *
 from tkinter import ttk
 import tkinter as tk
+from turtle import width
 import webbrowser
 import requests
 import pandas as pd
@@ -10,6 +11,7 @@ import json
 import math
 import re
 import os
+from datetime import date
 
 # header for accessing API
 headers = {
@@ -22,77 +24,63 @@ class App(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         
-        # self.app.title("One Page Thinking - Financial Information Application")            
-        self.shared_list = [
-        "Assets",
-        "CommonStockSharesAuthorized",
-        "CommonStockSharesIssued",
-        "CommonStockSharesOutstanding",
-        "CommonStockDividendsPerShareDeclared",
-        "CostOfGoodsAndServicesSold",
-        "Dividends",
-        "EarningsPerShareDiluted",
-        "Liabilities",
-        "LiabilitiesAndStockholdersEquity",
-        "LongTermDebt",
-        "LongTermDebtCurrent",
-        "LongTermDebtMaturitiesRepaymentsOfPrincipalAfterYearFive",
-        "OperatingExpenses",
-        "OperatingIncomeLoss",
-        "PreferredStockSharesAuthorized",
-        "Revenues",
-        "StockholdersEquity",
-        "WeightedAverageNumberOfSharesOutstandingBasic",
-        "NetIncomeLoss"
-        ]
-        
         # metric dict keys variable
         self.metric_dict_keys = None
         
-        self.sample = StringVar(value=self.shared_list)
+        # company name
+        self.today = date.today()
+        self.year = self.today.year
+        self.company_name = ""
         self.CIK = ""
         self.listbox_items = StringVar()
+        self.selected_metrics = {}
+        self.selected_details = {}
         
         # Set empty ticker variable
         self.ticker = StringVar()
         container = tk.Frame(self)
-        container.pack(side="top", fill="both", expand=True)
-        container.grid_rowconfigure(0, weight=1)
-        container.grid_columnconfigure(0, weight=1)
+        # container.grid(side="top", fill="both", expand=True)
+        container.grid(row=0,column=2, sticky="NSEW")
+        # container.grid_rowconfigure(0, weight=1)
+        # container.grid_columnconfigure(1, weight=1)
         
         self.frames = {}
-        for F in (start_page, list_page):
+        for F, geometry in zip((start_page, list_page), ("300x100", "2300x800")):
             # page_name = F.__name__
             frame =  F(parent = container, controller = self)
-            self.frames[F] = frame       
-            frame.grid(row=0, column=0, stick="nsew")
+            self.frames[F] = (frame, geometry)       
+            frame.grid(row=0, column=0, sticky="NSEW")
         self.show_frame(start_page)
         
     def show_frame(self, page_name):
-        frame = self.frames[page_name]
+        frame, geometry = self.frames[page_name]
+        self.geometry(geometry)
         frame.tkraise()
         
     def update_list_page(self):
-        self.frames[list_page].update_lbox()
+        self.frames[list_page][0].update_lbox()
             
 class start_page(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
+                
         self.controller = controller
         # Input Ticker Label
         label = tk.Label(self, text="Input Ticker Below")
-        label.pack(side="top", fill="x", pady=10)
+        label.grid(row=0, column=1, sticky="NSEW")
         
-        # Ticket Entry
+        # Ticker Entry
         # self.ticker = StringVar()
         self.get_input = ttk.Entry(self)
-        self.get_input.pack(side=tk.LEFT, anchor=tk.NW, padx=10)
+        self.get_input.grid(row=1, column=1, sticky="NSEW")
+        
+        # Get Input Button
         self.input_button = ttk.Button(self, text="Get Input", command=self.user_input)
-        self.input_button.pack()
+        self.input_button.grid(row=2, column=1, sticky="NSEW", pady=10)
         
         # Quit Button
-        self.quit_button = ttk.Button(controller, text="Quit", command=controller.quit)
-        self.quit_button.pack()
+        self.quit_button = ttk.Button(controller, text="Quit", command=quit)
+        self.quit_button.grid(row=0, column=0, sticky="NW", padx=10)
         
         # Switch Frame
         # switch_frame = ttk.Button(self, text="Go to Second Page",
@@ -104,6 +92,8 @@ class start_page(tk.Frame):
                 
     # get typed user input
     def user_input(self):
+        
+        print("Retrieving Company Information")
         
         # get entry from get_input Entry button
         s = self.get_input.get()
@@ -120,6 +110,8 @@ class start_page(tk.Frame):
         
         # change to second page
         App.show_frame(self.controller, list_page)
+        
+        print("Get User Input Pressed")
         return s
     
     # read ticker to cik file
@@ -134,6 +126,7 @@ class start_page(tk.Frame):
             for tick in data.values():
                 if tick['ticker'].lower() == ticker.lower():
                     print(tick['title'])
+                    self.controller.company_name = tick['title']
                     self.controller.CIK = str(tick['cik_str']).zfill(10)
                     return self.controller.CIK
                 
@@ -147,6 +140,7 @@ class start_page(tk.Frame):
         
             response = requests.get(url, headers=headers)
             
+            
             #ensure that connect works
             if not response.ok:
                 print('Retry')
@@ -158,57 +152,41 @@ class start_page(tk.Frame):
                 #dictionary for wanted metric
                 global metric_dict
                 metric_dict = {}
+                
+                global metric_dict_desc
+                metric_dict_desc = {}
 
 
                 for key, val in data['facts']['us-gaap'].items():
                     unit_df = pd.DataFrame()
-
                     for unit, unit_val in val['units'].items():
                         val_data = val['units'][unit]
+                        
+                        # if unit_val['fp'] == "10-K":
                         val_data_df = pd.DataFrame(unit_val)
-                        val_data_df['unit'] = unit
                         
-                        
-                        # deprecated warning
-                        # unit_df = unit_df.append(val_data_df)
-                        unit_df = pd.concat([unit_df, val_data_df])
-                        metric_dict[key] = unit_df
+                        # remove metrics without latest year data (deprecated metrics)
+                        if (val_data_df.empty == False) and ((max(val_data_df['fy']) == self.controller.year) 
+                                                             or (max(val_data_df['fy']) == self.controller.year-1)):
+                                                
+                            # print(val_data_df)
+                            val_data_df['unit'] = unit
+                            
+                            # deprecated warning
+                            # unit_df = unit_df.append(val_data_df)
+                            unit_df = pd.concat([unit_df, val_data_df])
+                            metric_dict[key] = unit_df
+                            metric_dict_desc[key] = val["description"]
                 
                 # list of keys
                 
                 self.controller.metric_dict_keys = [key for key in metric_dict.keys()]
-                print(self.controller.metric_dict_keys)
+                # print(self.controller.metric_dict_keys)
                 self.controller.update_list_page()
                 
+                # print dataframes
+                # print(metric_dict)
                 
-                for item in self.controller.shared_list:
-                    
-                    if item in metric_dict:
-                        metric = metric_dict[item]
-                        ten_k = metric[metric['form'] == '10-K']
-                        date = max(ten_k['filed'])
-                        ten_k = ten_k[(ten_k['filed'] == date) & (ten_k['form'] == '10-K') & (ten_k['frame'].isna())]
-
-                        #if the value for the requested metric is not null, then print
-                        #else find the latest metric for it available
-                        if ten_k['val'].empty:
-                            ten_k = metric
-                            date = max(ten_k['filed'])
-                            ten_k = ten_k[(ten_k['filed']==date)]   
-                            print(item + ": Value: ")
-                            print(ten_k.iloc[0]['val'])
-                            info = info + " ".join(re.sub(r"([A-Z])", r" \1", str(item)).split()) + ": " + "{:,}".format(ten_k.iloc[0]['val']) + "\n"
-                            # info_label.config(text=info)
-
-                        else:
-                            print(item + ": Value: ")
-                            print(ten_k.iloc[0]['val'])
-                            info = info + " ".join(re.sub(r"([A-Z])", r" \1", str(item)).split()) + ": " + "{:,}".format(ten_k.iloc[0]['val']) +"\n"
-                            # info_label.config(text=info)
-            print("\n===================================================")
-            print(info)
-        else:
-            print('No Input')
         
 class list_page(tk.Frame):
     def __init__(self, parent, controller):
@@ -216,32 +194,50 @@ class list_page(tk.Frame):
         super().__init__(parent)
         self.controller = controller
         
+        
+        # Home button
+        self.home = ttk.Button(self, text="Home Page",
+                            command=self.home_button)
+                            #    command=lambda: controller.show_frame(start_page))
+        self.home.grid(row=0,column=0, sticky="NW")
+        
+        
+        # Select Info Label
+        self.lbl = ttk.Label(self, text = "Select Desired Information")
+        self.lbl.grid(row=0,column=0,pady=10)
+        
         # Listbox Label
-        label = tk.Label(self, text="Choose Items from Listbox")
-        label.pack(side="top", fill="x", pady=10)
+        self.company = tk.Label(self, text=f"{self.controller.company_name}\n\nChoose Items From List",
+                                font=100)
+        self.company.grid(row=0, column=0, pady=10)
+        
+        # label = tk.Label(self, text="Choose Items from Listbox")
+        # label.grid(row=0, column=0, pady=10)
         
         # SEC Filing Launcher
         webpage = ttk.Button(self,
-                             text = "Report",
+                             text = "View Report",
                              command=lambda: self.hyperlink(controller.CIK))
-        webpage.pack(side=tk.LEFT, anchor=tk.NW)
-        
-        # Test if var is saved
-        print(self.controller.ticker.get() + "worked")
+        webpage.grid(row=1, column=0, pady=10, sticky="NW")
         
         # Company Information Listbox
         self.lbox = Listbox(self, listvariable=self.controller.metric_dict_keys, selectmode=MULTIPLE,
-               width=10, height=5)
-        self.lbox.pack(side="top", fill="x", pady=10)
-        self.lbl = ttk.Label(self, text = "Select Desired Information")
+               width=80, height=20, font=30)
+        self.lbox.grid(row=2, column=0, pady=10, sticky="NSEW")
+        
+        
+        # Select All Button
         self.select_button = ttk.Button(self, text='Select All', command=self.select_all)
-        self.select_button.pack(side="top", fill="x", pady=10)
+        self.select_button.grid(row=1,column=0, pady=10)
         
         
         # Print Information Button
         self.print_info = ttk.Button(self, text="Print Selected Information", command=self.lbox_print)
-        self.print_info.pack(side="top", fill="x", pady=10)
+        self.print_info.grid(row=3, column=0, pady=10)
         
+        # Print Details Button
+        self.print_details = ttk.Button(self, text="Print Selected Details", command=self.lbox_print_details)
+        self.print_details.grid(row=4, column=0, pady=10)
         
         # Currently selected listbox items
         self.listbox_selection = []
@@ -249,7 +245,44 @@ class list_page(tk.Frame):
         # Button Click counter
         self.counter = 0
         
+        # Printed Info
+        self.printed_information = tk.Text(self, font=("Arial", 12))
+        self.printed_information.insert(1.0, "Display Values Below")
+        self.printed_information.grid(row=2, column=1, pady=10, sticky="N")
         
+        # Printed Details
+        self.printed_details = tk.Text(self, font=("Arial", 12))
+        self.printed_details.insert(1.0, "Display Details Below")
+        self.printed_details.grid(row=2, column=2, pady=10, sticky="N")
+        
+        
+    # reset all variables and return to the home screen
+    def home_button(self):
+        # metric dict keys variable
+        self.controller.metric_dict_keys = None
+        
+        # company name
+        self.controller.company_name = ""
+        self.controller.CIK = ""
+        self.controller.listbox_items = StringVar()
+        self.controller.selected_metrics = {}
+        
+        # Set empty ticker variable
+        self.controller.ticker = StringVar()
+        self.counter = 0
+        
+        # Empty listbox
+        self.lbox.delete(0, 'end')
+        
+        # Empty Text
+        self.printed_information.delete("1.0", 'end')
+        
+        App.show_frame(self.controller, start_page)
+        
+        
+        
+             
+            
         
     def select_all(self):
         if self.counter % 2 == 0:
@@ -261,10 +294,16 @@ class list_page(tk.Frame):
         
     
     def update_lbox(self):
+        
+        # update company name
+        self.company.configure(text=f"{self.controller.company_name}\n\nChoose Items From List")        
+        
+        # update listbox
+        
         self.lbox.delete(0, 'end')
         for item in self.controller.metric_dict_keys:
             self.lbox.insert("end", item)
-        print(self.controller.metric_dict_keys)
+        # print(self.controller.metric_dict_keys)
     
         
     # find a company's SEC report from ticker
@@ -274,43 +313,104 @@ class list_page(tk.Frame):
         
     # print selected info from listbox
     def lbox_print(self):
+        
+        self.controller.selected_metrics = {}
+        
         for selection in self.lbox.curselection():
             current = self.lbox.get(selection)
-            # print(current)
             self.listbox_selection.append(current)
-            # print(metric_dict[current])
-            
             self.metric_extractor(current)
-    
+            
+        self.printed_information.delete("1.0", "end")                    
+        for key, val in self.controller.selected_metrics.items():
+            kv_string = f"{str(key)}: \n" + f"{str(val)}\n"
+            # print(kv_string)
+            self.printed_information.insert("end", kv_string)
+        
+    # print selected details from listbox
+    def lbox_print_details(self):
+        
+        self.controller.selected_details = {}
+        
+        for selection in self.lbox.curselection():    
+            current = self.lbox.get(selection)
+            self.controller.selected_details[current] = metric_dict_desc[current]
+        
+        self.printed_details.delete("1.0", "end")                    
+        for key, val in self.controller.selected_details.items():
+            kv_string = f"{str(key)}: \n" + f"{str(val)}\n"
+            # print(kv_string)
+            self.printed_details.insert("end", kv_string)
+        
+        
+        
+        
     # extract listbox selected metric relevant information
     def metric_extractor(self, m):
         
         info = self.controller.ticker.get().upper() + " Company Facts\n"
         
         metric = metric_dict[m]
-        ten_k = metric[metric['form'] == '10-K']
-        date = max(ten_k['filed'])
-        ten_k = ten_k[(ten_k['filed'] == date) & (ten_k['form'] == '10-K') & (ten_k['frame'].isna())]
-
-        #if the value for the requested metric is not null, then print
-        #else find the latest metric for it available
-        if ten_k['val'].empty:
-            ten_k = metric
-            date = max(ten_k['filed'])
-            ten_k = ten_k[(ten_k['filed']==date)]   
-            print(m + ": Value: ")
-            print(ten_k.iloc[0]['val'])
-            print("\n")
-            info = info + " ".join(re.sub(r"([A-Z])", r" \1", str(m)).split()) + ": " + "{:,}".format(ten_k.iloc[0]['val']) + "\n"
-            # info_label.config(text=info)
-
-        else:
-            print(m + ": Value: ")
-            print(ten_k.iloc[0]['val'])
-            print("\n")
-            info = info + " ".join(re.sub(r"([A-Z])", r" \1", str(m)).split()) + ": " + "{:,}".format(ten_k.iloc[0]['val']) +"\n"
-            # info_label.config(text=info)
+        ten_k = metric[(metric['form'] == '10-K') & (metric['fp'] == "FY")]                
+        latest = ten_k[ten_k['fy']==self.controller.year]
         
+        
+        try:
+            if latest.empty:
+                print(f"No {self.controller.year} 10-K")
+                print("Checking Previous Year")
+                latest = ten_k[ten_k['fy']==(self.controller.year-1)].reset_index(drop=True)
+                ten_k = latest
+            else:
+                print("Using 2022 10-K")
+                ten_k = latest
+
+            
+            #if the value for the requested metric is not null, then print
+            #else find the latest metric for it available
+            if ten_k['val'].empty:
+                print("Requested Value Column is empty")
+                ten_k = metric
+                date = max(ten_k['fy'])
+                ten_k = ten_k[(ten_k['filed']==date)]
+                print(m + ": Value: ")
+                # print(ten_k.iloc[0]['val'])
+                print("\n")
+                
+                ten_k['end'] = pd.to_datetime(ten_k['end'])
+                
+                try:
+                    latest_date_index = ten_k['end'].idxmax()
+                    print(latest_date_index)
+                                
+                    # add metric to list of selected metrics
+                    self.controller.selected_metrics[m] = ten_k.iloc[latest_date_index]['val']
+                except:
+                    print("There is no 'end': using last available value")
+                    self.controller.selected_metrics[m] = ten_k.iloc[-1]['val']
+
+            else:
+                print(m + ": Value: ")
+                print(ten_k.iloc[0]['val'])
+                print("\n")
+                
+                # add metric to list of selected metrics
+                ten_k['end'] = pd.to_datetime(ten_k['end'])
+                
+                
+                try:
+                    latest_date_index = ten_k['end'].idxmax()
+                    print(latest_date_index)
+                
+                    # add metric to list of selected metrics
+                    self.controller.selected_metrics[m] = ten_k.iloc[latest_date_index]['val']
+                except:
+                    print("There is no 'end': using last available value")
+                    self.controller.selected_metrics[m] = ten_k.iloc[-1]['val']
+        except:
+            print("No Valid Value Found")
+            self.controller.selected_metrics[m] = "NULL"
+                
         
             
             
@@ -319,5 +419,5 @@ class list_page(tk.Frame):
       
 
 app = App()
-app.title("One Page Thinking - Financial Information Application")
+app.title( )
 app.mainloop()
