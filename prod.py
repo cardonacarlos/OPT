@@ -67,10 +67,12 @@ class start_page(tk.Frame):
         self.input_button.grid(row=2, column=1, sticky="NSEW", pady=10)
         
         # Quit Button
-        self.quit_button = ttk.Button(controller, text="Quit", command=quit)
+        self.quit_button = ttk.Button(controller, text="Quit", command=self.quit_app)
         self.quit_button.grid(row=0, column=0, sticky="NW", padx=10)
         
-
+    def quit_app(self):
+        app.destroy()
+        
                 
     # Get Typed User Input
     def user_input(self):
