@@ -1,4 +1,3 @@
-from random import sample
 from tkinter import *
 from tkinter import ttk
 import tkinter as tk
@@ -6,28 +5,20 @@ from turtle import width
 import webbrowser
 import requests
 import pandas as pd
-import numpy as np
 import json
-import math
-import re
-import os
 from datetime import date
 
-# header for accessing API
+# API Access Header
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36',
-    'From': 'ccardona2000@gmail.com' 
+    'From': 'lesparrette@me.com' 
 }
 
-
+# Tkinter Frame Setup
 class App(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
-        
-        # metric dict keys variable
         self.metric_dict_keys = None
-        
-        # company name
         self.today = date.today()
         self.year = self.today.year
         self.company_name = ""
@@ -36,41 +27,38 @@ class App(tk.Tk):
         self.selected_metrics = {}
         self.selected_details = {}
         
-        # Set empty ticker variable
+        # Uses ticker in order to identify company
         self.ticker = StringVar()
         container = tk.Frame(self)
-        # container.grid(side="top", fill="both", expand=True)
         container.grid(row=0,column=2, sticky="NSEW")
-        # container.grid_rowconfigure(0, weight=1)
-        # container.grid_columnconfigure(1, weight=1)
-        
         self.frames = {}
-        for F, geometry in zip((start_page, list_page), ("300x100", "2300x800")):
-            # page_name = F.__name__
+        for F, geometry in zip((start_page, list_page), ("300x100", "1920x720")):
             frame =  F(parent = container, controller = self)
             self.frames[F] = (frame, geometry)       
             frame.grid(row=0, column=0, sticky="NSEW")
         self.show_frame(start_page)
         
+    # Input the requested frame and display it
     def show_frame(self, page_name):
         frame, geometry = self.frames[page_name]
         self.geometry(geometry)
         frame.tkraise()
         
+    # Update Listbox page items
     def update_list_page(self):
         self.frames[list_page][0].update_lbox()
             
+# Welcome Frame
 class start_page(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
-                
         self.controller = controller
+        
         # Input Ticker Label
         label = tk.Label(self, text="Input Ticker Below")
         label.grid(row=0, column=1, sticky="NSEW")
         
-        # Ticker Entry
-        # self.ticker = StringVar()
+        # Ticker Entry box
         self.get_input = ttk.Entry(self)
         self.get_input.grid(row=1, column=1, sticky="NSEW")
         
@@ -82,17 +70,10 @@ class start_page(tk.Frame):
         self.quit_button = ttk.Button(controller, text="Quit", command=quit)
         self.quit_button.grid(row=0, column=0, sticky="NW", padx=10)
         
-        # Switch Frame
-        # switch_frame = ttk.Button(self, text="Go to Second Page",
-        #                         command=lambda: controller.show_frame("list_page"))
-        # switch_frame.pack(side="top", fill="x", pady=10)
-                  
-        # Bind Enter Key to command
 
                 
-    # get typed user input
+    # Get Typed User Input
     def user_input(self):
-        
         print("Retrieving Company Information")
         
         # get entry from get_input Entry button
@@ -100,27 +81,24 @@ class start_page(tk.Frame):
         
         # set ticker StringVar to ticker
         self.controller.ticker.set(s)
-        # print(s)
         
         # set CIK number variable using tick_to_cik function
         self.controller.CIK = self.tick_to_cik(self.controller.ticker.get())
-        
         self.company_facts(self.controller.ticker.get())
                 
-        
         # change to second page
         App.show_frame(self.controller, list_page)
-        
         print("Get User Input Pressed")
         return s
     
-    # read ticker to cik file
-    # refer to link https://www.sec.gov/files/company_tickers.json
+    # Read Ticker and return associcated CIK
+    # Refer to link https://www.sec.gov/files/company_tickers.json
     def tick_to_cik(self, ticker):
         url = 'https://www.sec.gov/files/company_tickers.json'
         response = requests.get(url, headers=headers)
         if not response.ok:
             print('Retrying...')
+            return tick_to_cick(self, ticker)
         else:
             data = response.json()
             for tick in data.values():
@@ -130,26 +108,23 @@ class start_page(tk.Frame):
                     self.controller.CIK = str(tick['cik_str']).zfill(10)
                     return self.controller.CIK
                 
-    # access SEC Edgar API and return facts
-    # takes in ticker as a string
+    # Access SEC Edgar API and return company facts
+    # Takes ticker input as string
     def company_facts(self, string):
-        
         if string:
             info = string.upper() + " Company Facts\n"
             url = "https://data.sec.gov/api/xbrl/companyfacts/CIK"  + self.tick_to_cik(string) + ".json"
-        
             response = requests.get(url, headers=headers)
-            
-            
-            #ensure that connect works
+            # ensure that connect works
             if not response.ok:
                 print('Retry')
+                return company_facts(self, string)
             else:
-                #load json data
+                # load json data
                 response = response.text
                 data = json.loads(response)
 
-                #dictionary for wanted metric
+                # global dictionary for wanted metric
                 global metric_dict
                 metric_dict = {}
                 
@@ -160,18 +135,14 @@ class start_page(tk.Frame):
                 for key, val in data['facts']['us-gaap'].items():
                     unit_df = pd.DataFrame()
                     for unit, unit_val in val['units'].items():
-                        val_data = val['units'][unit]
-                        
-                        # if unit_val['fp'] == "10-K":
+                        val_data = val['units'][unit]                        
                         val_data_df = pd.DataFrame(unit_val)
                         
                         # remove metrics without latest year data (deprecated metrics)
                         if (val_data_df.empty == False) and ((max(val_data_df['fy']) == self.controller.year) 
                                                              or (max(val_data_df['fy']) == self.controller.year-1)):
-                                                
-                            # print(val_data_df)
                             val_data_df['unit'] = unit
-                            
+ 
                             # deprecated warning
                             # unit_df = unit_df.append(val_data_df)
                             unit_df = pd.concat([unit_df, val_data_df])
@@ -181,13 +152,8 @@ class start_page(tk.Frame):
                 # list of keys
                 
                 self.controller.metric_dict_keys = [key for key in metric_dict.keys()]
-                # print(self.controller.metric_dict_keys)
                 self.controller.update_list_page()
-                
-                # print dataframes
-                # print(metric_dict)
-                
-        
+                      
 class list_page(tk.Frame):
     def __init__(self, parent, controller):
         # tk.Frame.__init__(self, parent)
@@ -222,7 +188,7 @@ class list_page(tk.Frame):
         
         # Company Information Listbox
         self.lbox = Listbox(self, listvariable=self.controller.metric_dict_keys, selectmode=MULTIPLE,
-               width=80, height=20, font=30)
+               width=50, height=20, font=30)
         self.lbox.grid(row=2, column=0, pady=10, sticky="NSEW")
         
         
@@ -246,12 +212,12 @@ class list_page(tk.Frame):
         self.counter = 0
         
         # Printed Info
-        self.printed_information = tk.Text(self, font=("Arial", 12))
+        self.printed_information = tk.Text(self, font=("Arial", 12), width=50, wrap=WORD)
         self.printed_information.insert(1.0, "Display Values Below")
         self.printed_information.grid(row=2, column=1, pady=10, sticky="N")
         
         # Printed Details
-        self.printed_details = tk.Text(self, font=("Arial", 12))
+        self.printed_details = tk.Text(self, font=("Arial", 12), width=50, wrap=WORD)
         self.printed_details.insert(1.0, "Display Details Below")
         self.printed_details.grid(row=2, column=2, pady=10, sticky="N")
         
@@ -276,13 +242,10 @@ class list_page(tk.Frame):
         
         # Empty Text
         self.printed_information.delete("1.0", 'end')
+        self.printed_details.delete("1.0", "end")
         
         App.show_frame(self.controller, start_page)
-        
-        
-        
-             
-            
+               
         
     def select_all(self):
         if self.counter % 2 == 0:
@@ -323,9 +286,15 @@ class list_page(tk.Frame):
             
         self.printed_information.delete("1.0", "end")                    
         for key, val in self.controller.selected_metrics.items():
-            kv_string = f"{str(key)}: \n" + f"{str(val)}\n"
-            # print(kv_string)
-            self.printed_information.insert("end", kv_string)
+            
+            try:
+                kv_string = f"{str(key)}: \n" + f"{val:,}\n" + "\n"
+                print(kv_string)
+                self.printed_information.insert("end", kv_string)
+            except:     
+                kv_string = f"{str(key)}: \n" + f"{str(val)}\n" + "\n"
+                print(kv_string)
+                self.printed_information.insert("end", kv_string)
         
     # print selected details from listbox
     def lbox_print_details(self):
@@ -338,7 +307,7 @@ class list_page(tk.Frame):
         
         self.printed_details.delete("1.0", "end")                    
         for key, val in self.controller.selected_details.items():
-            kv_string = f"{str(key)}: \n" + f"{str(val)}\n"
+            kv_string = f"{str(key)}: \n" + f"{str(val)}\n" + "\n"
             # print(kv_string)
             self.printed_details.insert("end", kv_string)
         
@@ -410,6 +379,16 @@ class list_page(tk.Frame):
         except:
             print("No Valid Value Found")
             self.controller.selected_metrics[m] = "NULL"
+        
+        key_remove_list = []
+        for key, val in self.controller.selected_metrics.items():
+            if val == "NULL":
+                key_remove_list.append(key)
+        
+        for k in key_remove_list:
+                self.controller.selected_metrics.pop(k, None)
+                self.controller.selected_details.pop(k, None)
+            
                 
         
             
@@ -419,5 +398,5 @@ class list_page(tk.Frame):
       
 
 app = App()
-app.title( )
+app.title("One Page Thinking")
 app.mainloop()
